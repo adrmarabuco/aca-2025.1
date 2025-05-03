@@ -1,10 +1,9 @@
 # %%
-# %pip install pandas networkx matplotlib
+# %pip install pandas networkx
 
 # %%
 import pandas as pd
 import networkx as nx
-import matplotlib.pyplot as plt
 from time import sleep
 import logging
 from datetime import datetime
@@ -35,7 +34,7 @@ class Mapa:
         self.conexoes = conexoes
         self.linhas = linhas
         self.tempo_baldeacao = 3
-        self.volta = False
+       
         
 
     def backtrack(self, memoria, estacao):
@@ -50,8 +49,6 @@ class Mapa:
     def g(self, inicio, fim, memoria, numero, baldeacao):
         if len(memoria) == 0:
             return round(self.conexoes.get_edge_data(inicio, fim)['weight'], 2)
-        if self.volta:
-            return round(self.conexoes.get_edge_data(inicio, fim)['weight'] + self.backtrack(memoria, fim) + (self.tempo_baldeacao * baldeacao),2)
         return round(self.conexoes.get_edge_data(inicio, fim)['weight'] + memoria[-1][0]["custo_historico"] + (self.tempo_baldeacao * baldeacao),2)
     
     def h(self, inicio, fim):
@@ -74,6 +71,7 @@ class Mapa:
 
         self.estacao = self.origem
         self.memoria = []
+        self.visitados = set()
                 
         self.numero = 0
         h0 = self.h(self.origem, self.destino)
@@ -81,20 +79,21 @@ class Mapa:
         logging.info(f"*" * 50)
             
             
-        while self.estacao != self.destino and self.numero <= 10:        
+        while self.estacao != self.destino:        
 
             logging.info(f"Rodada: {self.numero}")
             logging.info(f"Estação atual: {self.estacao}")
+            self.visitados.add(self.estacao)
 
             # fronteira
             fronteira = self.get_fronteira(self.estacao)
-
-            self.candidatos = self.get_fronteira(self.estacao)
-            logging.info(f"Candidatos: {list(self.candidatos)}")
-
+            candidatos = []
 
             self.rodada = []
             for i in fronteira:
+
+                if i in self.visitados:
+                    continue
                 
                 if len(self.memoria) != 0:
                     # logging.info(self.memoria[-1][0]["linha"])
@@ -127,27 +126,18 @@ class Mapa:
                 for k, v in candidato.items():
                     log_str += f"  {k:<15}: {v}\n"
                 logging.info(log_str)
+
+            # if not candidatos:
+            #     logging.error("Sem candidatos válidos, caminho não encontrado!")
+            #     return None
             
             # ordena fronteira
             self.rodada.sort(key=lambda x: x["custo_total"])
 
             # seleciona o melhor destino                
             self.estacao = self.rodada[0]["fim"]
-
-            ## verifica se vai voltar para inicio da rodada anterior, e se for altera o custo histórico da estação de origem
-            if len(self.memoria) > 0 and self.rodada[0]["fim"] == self.memoria[-1][0]["inicio"]:
-                self.volta = True
-                # logging.info("Voltando para inicio da rodada anterior")
-                # logging.info(f'antes: {self.memoria[-1][0]["custo_historico"]}')
-                self.memoria[-1][0]["custo_historico"] += (2 * self.rodada[0]["custo_trecho"])
-                # logging.info(f'agora: {self.memoria[-1][0]["custo_historico"]}')
-                # logging.info(f'antes: {self.memoria[-1][0]["custo_total"]}')
-                self.memoria[-1][0]["custo_total"] += (2 * self.rodada[0]["custo_trecho"])
-                # logging.info(f'agora: {self.memoria[-1][0]["custo_total"]}')
-            else:
-                # caso contrário salva nova rodada na memoria 
-                self.volta = False
-                self.memoria.append(self.rodada)
+            
+            self.memoria.append(self.rodada)
                 
             resultado = {i+1: r['fim'] for i, r in enumerate(self.rodada)}
             logging.info(f"Ordem: {resultado}")
@@ -157,16 +147,17 @@ class Mapa:
             
             logging.info(f"*" * 50)
             logging.info(f" " )
-            with open('tmp.json', 'w') as f:
-                import json
-                f.write(f"{json.dumps(self.memoria)}\n")
+            # with open('tmp.json', 'w') as f:
+            #     import json
+            #     f.write(f"{json.dumps(self.memoria)}\n")
             
             sleep(2)
 
         trajeto = []
-        trajeto.append((self.origem, self.memoria[0][0]['linha_fim'], 0))   
-        for r in self.memoria:
-            trajeto.append((r[0]['fim'],r[0]['linha_fim'], r[0]['custo_historico']))
+        trajeto.append([self.origem, self.memoria[0][0]['linha_fim'], 0])   
+        for i, r in enumerate(self.memoria):
+            trajeto.append([r[0]['fim'],r[0]['linha_fim'], r[0]['custo_historico']])
+
         # trajeto.append((self.destino, self.memoria[-1][0]['linha'], self.memoria[-1][0]['custo_historico']))
         
         path = ' -> '.join([p[0]+' ('+p[1]+'): ' + str(p[2]) + ' min' for p in trajeto])
