@@ -33,8 +33,7 @@ class Mapa:
         self.distancias = distancias
         self.conexoes = conexoes
         self.linhas = linhas
-        self.tempo_baldeacao = 3
-       
+        self.tempo_baldeacao = 3      
         
 
     def backtrack(self, memoria, estacao):
